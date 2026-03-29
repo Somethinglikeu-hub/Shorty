@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">Shorty Cloud</string>
+    <string name="github_token_hint">GitHub PAT (Actions write + read)</string>
+    <string name="owner_hint">GitHub owner</string>
+    <string name="repo_hint">Repository name</string>
+    <string name="workflow_hint">Workflow file</string>
+    <string name="branch_hint">Branch</string>
+    <string name="seed_hint">Optional seed topic</string>
+    <string name="save_settings">Save Settings</string>
+    <string name="generate_short">Generate Short</string>
+    <string name="refresh_status">Refresh Status</string>
+    <string name="open_run">Open GitHub Run</string>
+    <string name="open_studio">Open YouTube Studio</string>
+    <string name="open_youtube">Open YouTube Link</string>
+    <string name="saved">Settings saved.</string>
+    <string name="missing_settings">GitHub token, owner, repo, workflow and branch are required.</string>
+    <string name="ready">Ready. Configure your GitHub repo and tap Generate.</string>
+    <string name="dispatching">Dispatching workflow...</string>
+    <string name="workflow_started">Workflow started. Polling latest run...</string>
+    <string name="loading_run">Loading latest run...</string>
+    <string name="no_run_found">No workflow run found yet.</string>
+    <string name="summary_pending">Run exists. Summary artifact will appear after completion.</string>
+    <string name="generic_error">Something went wrong.</string>
+    <string name="link_missing">This link is not ready yet.</string>
+    <string name="setup_hint">Use a repo under %1$s/%2$s with the included GitHub Actions workflow and secrets configured.</string>
+    <string name="run_format">Run #%1$s\nStatus: %2$s\nConclusion: %3$s\nUpdated: %4$s</string>
+
+    <string-array name="privacy_options">
+        <item>private</item>
+        <item>unlisted</item>
+    </string-array>
+</resources>
+

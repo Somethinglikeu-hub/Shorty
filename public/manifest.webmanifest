@@ -1,0 +1,18 @@
+{
+  "name": "Shorty Control",
+  "short_name": "Shorty",
+  "description": "Mobilden kontrol edilen YouTube Shorts paneli",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#130f10",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

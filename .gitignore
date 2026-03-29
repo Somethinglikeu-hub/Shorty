@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+data
+coverage
+*.log
+.idea
+.vscode
+android-app/qa
+android-app/.gradle
+android-app/local.properties
+android-app/app/build
+android-app/build

@@ -1,0 +1,89 @@
+{
+  "name": "Shorty Mobile Trigger",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "shorty-mobile-generate",
+        "httpMethod": "POST",
+        "responseMode": "responseNode"
+      },
+      "id": "trigger-webhook",
+      "name": "Trigger Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SHORTY_SERVICE_URL + '/api/jobs'}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-shorty-token",
+              "value": "={{$env.SHORTY_ADMIN_TOKEN}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { seedTopic: $json.body.seedTopic, privacy: $json.body.privacy || 'private', trigger: 'n8n' } }}"
+      },
+      "id": "create-job",
+      "name": "Create Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}"
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.3,
+      "position": [
+        820,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Trigger Webhook": {
+      "main": [
+        [
+          {
+            "node": "Create Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Job": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {},
+  "versionId": "shorty-mobile-trigger-v1"
+}
+
