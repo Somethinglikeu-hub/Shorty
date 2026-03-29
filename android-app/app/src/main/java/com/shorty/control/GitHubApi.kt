@@ -29,6 +29,15 @@ data class WorkflowSummary(
     val errorMessage: String? = null
 )
 
+data class GitHubSecretSyncResult(
+    val names: List<String>
+)
+
+private data class GitHubPublicKey(
+    val id: String,
+    val key: String
+)
+
 class GitHubApi(private val settings: AppSettings) {
     private fun openConnection(url: String, method: String): HttpURLConnection {
         val connection = URL(url).openConnection() as HttpURLConnection
@@ -38,7 +47,7 @@ class GitHubApi(private val settings: AppSettings) {
         connection.setRequestProperty("Accept", "application/vnd.github+json")
         connection.setRequestProperty("Authorization", "Bearer ${settings.githubToken}")
         connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
-        connection.setRequestProperty("User-Agent", "ShortyControlAndroid/1.0")
+        connection.setRequestProperty("User-Agent", "ShortyControlAndroid/1.1")
         return connection
     }
 
@@ -73,6 +82,66 @@ class GitHubApi(private val settings: AppSettings) {
             .put("inputs", JSONObject().put("seed_topic", seedTopic ?: "").put("privacy", privacy))
         connection.outputStream.use { output -> output.write(payload.toString().toByteArray()) }
         if (connection.responseCode != 204) {
+            throw IllegalStateException(parseApiError(connection))
+        }
+    }
+
+    fun syncCloudSecrets(refreshToken: String? = null): GitHubSecretSyncResult {
+        val secretsToWrite = linkedMapOf<String, String>()
+        if (BuildConfig.GEMINI_API_KEY.isNotBlank()) {
+            secretsToWrite["GEMINI_API_KEY"] = BuildConfig.GEMINI_API_KEY
+        }
+        if (BuildConfig.PEXELS_API_KEY.isNotBlank()) {
+            secretsToWrite["PEXELS_API_KEY"] = BuildConfig.PEXELS_API_KEY
+        }
+        if (BuildConfig.SHORTY_ADMIN_TOKEN.isNotBlank()) {
+            secretsToWrite["SHORTY_ADMIN_TOKEN"] = BuildConfig.SHORTY_ADMIN_TOKEN
+        }
+        if (BuildConfig.YOUTUBE_CLIENT_ID.isNotBlank()) {
+            secretsToWrite["YOUTUBE_CLIENT_ID"] = BuildConfig.YOUTUBE_CLIENT_ID
+        }
+        if (BuildConfig.YOUTUBE_CLIENT_SECRET.isNotBlank()) {
+            secretsToWrite["YOUTUBE_CLIENT_SECRET"] = BuildConfig.YOUTUBE_CLIENT_SECRET
+        }
+        if (!refreshToken.isNullOrBlank()) {
+            secretsToWrite["YOUTUBE_REFRESH_TOKEN"] = refreshToken
+        }
+
+        if (secretsToWrite.isEmpty()) {
+            return GitHubSecretSyncResult(emptyList())
+        }
+
+        val publicKey = fetchActionsPublicKey()
+        secretsToWrite.forEach { (name, value) ->
+            createOrUpdateSecret(publicKey, name, value)
+        }
+        return GitHubSecretSyncResult(secretsToWrite.keys.toList())
+    }
+
+    private fun fetchActionsPublicKey(): GitHubPublicKey {
+        val url = "https://api.github.com/repos/${settings.owner}/${settings.repo}/actions/secrets/public-key"
+        val connection = openConnection(url, "GET")
+        if (connection.responseCode !in 200..299) {
+            throw IllegalStateException(parseApiError(connection))
+        }
+        val payload = JSONObject(readBody(connection))
+        return GitHubPublicKey(
+            id = payload.getString("key_id"),
+            key = payload.getString("key")
+        )
+    }
+
+    private fun createOrUpdateSecret(publicKey: GitHubPublicKey, name: String, value: String) {
+        val encryptedValue = GitHubSecretCrypto.encryptForGitHub(publicKey.key, value)
+        val url = "https://api.github.com/repos/${settings.owner}/${settings.repo}/actions/secrets/$name"
+        val connection = openConnection(url, "PUT")
+        connection.doOutput = true
+        connection.setRequestProperty("Content-Type", "application/json")
+        val payload = JSONObject()
+            .put("encrypted_value", encryptedValue)
+            .put("key_id", publicKey.id)
+        connection.outputStream.use { output -> output.write(payload.toString().toByteArray()) }
+        if (connection.responseCode !in 200..299) {
             throw IllegalStateException(parseApiError(connection))
         }
     }

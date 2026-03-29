@@ -91,6 +91,21 @@
                 android:textColorHint="@color/text_hint" />
         </LinearLayout>
 
+        <Button
+            android:id="@+id/connectYoutubeButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/connect_youtube" />
+
+        <TextView
+            android:id="@+id/youtubeStatusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp" />
+
         <EditText
             android:id="@+id/seedTopicInput"
             android:layout_width="match_parent"

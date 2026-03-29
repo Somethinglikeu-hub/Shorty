@@ -100,8 +100,9 @@ PC acik kalmasin istiyorsan GitHub Actions tabanli cloud mode kullan.
 
 - Workflow dosyasi: `.github/workflows/generate-short.yml`
 - Rehber: `docs/cloud-mode.md`
+- Android uygulamasi: `android-app/`
 
-Bu modda telefonundan GitHub Actions workflow'unu calistirirsin, render cloud runner'da olur ve video kanalina private olarak yuklenir.
+Bu modda telefonundaki Android uygulamasinda bir kez `Connect YouTube` yaparsin, uygulama gerekli repo secret'larini sync eder, sonra `Generate Short` ile render cloud runner'da olur ve video baglanan kanala private olarak yuklenir.
 
 ## Notlar
 

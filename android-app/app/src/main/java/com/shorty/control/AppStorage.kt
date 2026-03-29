@@ -10,6 +10,13 @@ data class AppSettings(
     val branch: String = "main"
 )
 
+data class YouTubeConnectionInfo(
+    val email: String = "",
+    val channelTitle: String = "",
+    val channelId: String = "",
+    val connectedAtIso: String = ""
+)
+
 class AppStorage(context: Context) {
     private val preferences = context.getSharedPreferences("shorty_settings", Context.MODE_PRIVATE)
 
@@ -30,6 +37,33 @@ class AppStorage(context: Context) {
             .putString("repo", settings.repo)
             .putString("workflowFile", settings.workflowFile)
             .putString("branch", settings.branch)
+            .apply()
+    }
+
+    fun loadYouTubeConnection(): YouTubeConnectionInfo {
+        return YouTubeConnectionInfo(
+            email = preferences.getString("youtubeEmail", "") ?: "",
+            channelTitle = preferences.getString("youtubeChannelTitle", "") ?: "",
+            channelId = preferences.getString("youtubeChannelId", "") ?: "",
+            connectedAtIso = preferences.getString("youtubeConnectedAtIso", "") ?: ""
+        )
+    }
+
+    fun saveYouTubeConnection(connection: YouTubeConnectionInfo) {
+        preferences.edit()
+            .putString("youtubeEmail", connection.email)
+            .putString("youtubeChannelTitle", connection.channelTitle)
+            .putString("youtubeChannelId", connection.channelId)
+            .putString("youtubeConnectedAtIso", connection.connectedAtIso)
+            .apply()
+    }
+
+    fun clearYouTubeConnection() {
+        preferences.edit()
+            .remove("youtubeEmail")
+            .remove("youtubeChannelTitle")
+            .remove("youtubeChannelId")
+            .remove("youtubeConnectedAtIso")
             .apply()
     }
 }

@@ -13,7 +13,10 @@ import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.common.api.ApiException
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
@@ -28,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var privacySpinner: Spinner
 
     private lateinit var saveButton: Button
+    private lateinit var connectYoutubeButton: Button
     private lateinit var generateButton: Button
     private lateinit var refreshButton: Button
     private lateinit var openRunButton: Button
@@ -39,12 +43,38 @@ class MainActivity : AppCompatActivity() {
     private lateinit var runText: TextView
     private lateinit var summaryText: TextView
     private lateinit var helpText: TextView
+    private lateinit var youtubeStatusText: TextView
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var latestRunUrl: String? = null
     private var latestStudioUrl: String? = null
     private var latestYoutubeUrl: String? = null
     private var isPolling = false
+
+    private val googleSignInLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode != RESULT_OK || result.data == null) {
+            setLoading(false, getString(R.string.youtube_sign_in_cancelled))
+            Toast.makeText(this, R.string.youtube_sign_in_cancelled, Toast.LENGTH_LONG).show()
+            return@registerForActivityResult
+        }
+
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            val serverAuthCode = account.serverAuthCode
+            if (serverAuthCode.isNullOrBlank()) {
+                setLoading(false, getString(R.string.missing_server_auth_code))
+                Toast.makeText(this, R.string.missing_server_auth_code, Toast.LENGTH_LONG).show()
+                return@registerForActivityResult
+            }
+            finishYouTubeConnection(serverAuthCode)
+        } catch (error: ApiException) {
+            setLoading(false, error.localizedMessage ?: getString(R.string.generic_error))
+            Toast.makeText(this, error.localizedMessage ?: getString(R.string.generic_error), Toast.LENGTH_LONG).show()
+        }
+    }
 
     private val pollRunnable = object : Runnable {
         override fun run() {
@@ -64,6 +94,7 @@ class MainActivity : AppCompatActivity() {
         bindViews()
         setupSpinner()
         restoreSettings()
+        restoreYouTubeConnection()
         wireActions()
     }
 
@@ -76,6 +107,7 @@ class MainActivity : AppCompatActivity() {
         seedTopicInput = findViewById(R.id.seedTopicInput)
         privacySpinner = findViewById(R.id.privacySpinner)
         saveButton = findViewById(R.id.saveButton)
+        connectYoutubeButton = findViewById(R.id.connectYoutubeButton)
         generateButton = findViewById(R.id.generateButton)
         refreshButton = findViewById(R.id.refreshButton)
         openRunButton = findViewById(R.id.openRunButton)
@@ -86,6 +118,7 @@ class MainActivity : AppCompatActivity() {
         runText = findViewById(R.id.runText)
         summaryText = findViewById(R.id.summaryText)
         helpText = findViewById(R.id.helpText)
+        youtubeStatusText = findViewById(R.id.youtubeStatusText)
     }
 
     private fun setupSpinner() {
@@ -108,11 +141,16 @@ class MainActivity : AppCompatActivity() {
         helpText.text = getString(R.string.setup_hint, settings.owner, settings.repo)
     }
 
+    private fun restoreYouTubeConnection() {
+        renderYouTubeConnection(storage.loadYouTubeConnection())
+    }
+
     private fun wireActions() {
         saveButton.setOnClickListener {
             storage.save(currentSettings())
             Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
         }
+        connectYoutubeButton.setOnClickListener { connectYouTube() }
         generateButton.setOnClickListener { dispatchWorkflow() }
         refreshButton.setOnClickListener { fetchLatestRun(showToastOnError = true) }
         openRunButton.setOnClickListener { openExternal(latestRunUrl) }
@@ -138,6 +176,53 @@ class MainActivity : AppCompatActivity() {
             return false
         }
         return true
+    }
+
+    private fun connectYouTube() {
+        val settings = currentSettings()
+        if (!validateSettings(settings)) {
+            return
+        }
+        if (!YouTubeAuthManager.isConfigured()) {
+            Toast.makeText(this, R.string.youtube_connection_missing_config, Toast.LENGTH_LONG).show()
+            return
+        }
+
+        storage.save(settings)
+        setLoading(true, getString(R.string.opening_google_sign_in))
+        val signInClient = YouTubeAuthManager.createGoogleSignInClient(this)
+        googleSignInLauncher.launch(signInClient.signInIntent)
+    }
+
+    private fun finishYouTubeConnection(serverAuthCode: String) {
+        val settings = currentSettings()
+        setLoading(true, getString(R.string.finishing_youtube_connect))
+        thread {
+            try {
+                val account = YouTubeAuthManager.exchangeServerAuthCode(serverAuthCode)
+                val api = GitHubApi(settings)
+                api.syncCloudSecrets(account.refreshToken)
+                val connectionInfo = YouTubeConnectionInfo(
+                    email = account.email,
+                    channelTitle = account.channelTitle,
+                    channelId = account.channelId,
+                    connectedAtIso = account.connectedAtIso
+                )
+                storage.save(settings)
+                storage.saveYouTubeConnection(connectionInfo)
+                runOnUiThread {
+                    YouTubeAuthManager.createGoogleSignInClient(this).signOut()
+                    renderYouTubeConnection(connectionInfo)
+                    setLoading(false, getString(R.string.youtube_connected))
+                    Toast.makeText(this, R.string.youtube_connected, Toast.LENGTH_LONG).show()
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    setLoading(false, error.message ?: getString(R.string.generic_error))
+                    Toast.makeText(this, error.message ?: getString(R.string.generic_error), Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     private fun dispatchWorkflow() {
@@ -246,6 +331,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun renderYouTubeConnection(connection: YouTubeConnectionInfo) {
+        youtubeStatusText.text = if (connection.channelId.isBlank()) {
+            getString(R.string.youtube_not_connected)
+        } else {
+            getString(
+                R.string.youtube_connected_format,
+                connection.channelTitle.ifBlank { "-" },
+                connection.email.ifBlank { "-" },
+                connection.channelId
+            )
+        }
+    }
+
     private fun updateButtons() {
         openRunButton.isEnabled = !latestRunUrl.isNullOrBlank()
         openStudioButton.isEnabled = !latestStudioUrl.isNullOrBlank()
@@ -256,6 +354,7 @@ class MainActivity : AppCompatActivity() {
         progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
         statusText.text = status
         saveButton.isEnabled = !isLoading
+        connectYoutubeButton.isEnabled = !isLoading
         generateButton.isEnabled = !isLoading
         refreshButton.isEnabled = !isLoading
     }

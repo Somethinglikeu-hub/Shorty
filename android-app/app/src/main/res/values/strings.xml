@@ -1,10 +1,11 @@
 <resources>
     <string name="app_name">Shorty Cloud</string>
-    <string name="github_token_hint">GitHub PAT (Actions write + read)</string>
+    <string name="github_token_hint">GitHub PAT (Actions + Secrets write)</string>
     <string name="owner_hint">GitHub owner</string>
     <string name="repo_hint">Repository name</string>
     <string name="workflow_hint">Workflow file</string>
     <string name="branch_hint">Branch</string>
+    <string name="connect_youtube">Connect YouTube</string>
     <string name="seed_hint">Optional seed topic</string>
     <string name="save_settings">Save Settings</string>
     <string name="generate_short">Generate Short</string>
@@ -18,11 +19,19 @@
     <string name="dispatching">Dispatching workflow...</string>
     <string name="workflow_started">Workflow started. Polling latest run...</string>
     <string name="loading_run">Loading latest run...</string>
+    <string name="opening_google_sign_in">Opening Google sign-in...</string>
+    <string name="finishing_youtube_connect">Finishing YouTube connection...</string>
+    <string name="youtube_connected">YouTube connected and cloud secrets synced.</string>
+    <string name="youtube_not_connected">YouTube is not connected yet.</string>
+    <string name="youtube_connected_format">Connected to %1$s\nGoogle account: %2$s\nChannel ID: %3$s</string>
+    <string name="youtube_connection_missing_config">This APK was built without local YouTube OAuth config.</string>
+    <string name="youtube_sign_in_cancelled">Google sign-in was cancelled.</string>
+    <string name="missing_server_auth_code">Google did not return a server auth code. Please try again.</string>
     <string name="no_run_found">No workflow run found yet.</string>
     <string name="summary_pending">Run exists. Summary artifact will appear after completion.</string>
     <string name="generic_error">Something went wrong.</string>
     <string name="link_missing">This link is not ready yet.</string>
-    <string name="setup_hint">Use a repo under %1$s/%2$s with the included GitHub Actions workflow and secrets configured.</string>
+    <string name="setup_hint">Use a repo under %1$s/%2$s. First save your GitHub PAT, then tap Connect YouTube once. After that Generate will upload to the connected channel.</string>
     <string name="run_format">Run #%1$s\nStatus: %2$s\nConclusion: %3$s\nUpdated: %4$s</string>
 
     <string-array name="privacy_options">
@@ -30,4 +39,3 @@
         <item>unlisted</item>
     </string-array>
 </resources>
-
