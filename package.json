@@ -9,7 +9,6 @@
     "start": "node dist/src/server.js",
     "run:headless": "node dist/src/headless.js",
     "test": "vitest run",
-    "github:bootstrap": "tsx scripts/bootstrap-github-repo.ts",
     "youtube:auth-url": "tsx scripts/youtube-auth-url.ts",
     "youtube:exchange-code": "tsx scripts/youtube-exchange-code.ts"
   },
@@ -17,7 +16,6 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "googleapis": "^144.0.0",
-    "libsodium-wrappers": "^0.7.15",
     "zod": "^3.24.2"
   },
   "devDependencies": {
