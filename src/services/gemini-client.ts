@@ -83,10 +83,10 @@ function normalizeRetimedScript(
   }
 
   const wordCount = countWords(fullScript);
-  if (wordCount < targetWords.min || wordCount > targetWords.max) {
+  if (wordCount < Math.max(55, targetWords.min - 12) || wordCount > targetWords.max + 18) {
     throw new ShortyError(
       "voicing",
-      `AI sureye gore yeniden yazarken hedef kelime bandina uymadi (${wordCount} kelime).`,
+      `AI sureye gore yeniden yazarken asiri ucta bir script dondurdu (${wordCount} kelime).`,
       true
     );
   }
