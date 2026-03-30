@@ -9,7 +9,7 @@ function nowIso(): string {
 }
 
 function buildDefaultVoiceStyle(): string {
-  return "Sakin, sicak ve ozguvenli bir Turkce anlatici gibi konus. Kisa cumleler kur ve her kelimeyi temiz telaffuz et.";
+  return "Sakin, sicak ve ozguvenli bir Turkce anlatici gibi konus. Hafif tempolu ilerle, gereksiz duraklardan kac ve her kelimeyi temiz telaffuz et.";
 }
 
 export class JobStore {

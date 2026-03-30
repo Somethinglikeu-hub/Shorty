@@ -4,6 +4,7 @@ import { AppConfig } from "../config";
 import { buildAssSubtitle, buildCaptionCues } from "../lib/captions";
 import { ShortyError, toShortyError } from "../lib/errors";
 import { ensureDir } from "../lib/file-system";
+import { deriveScriptWordWindow } from "../lib/script-timing";
 import { countWords } from "../lib/text";
 import { StoryPlan, StoryReview, ShortyJob } from "../types";
 import { JobStore } from "../store/job-store";
@@ -140,16 +141,73 @@ export class JobRunner {
     const audioDir = path.join(this.store.jobDir(job.id), "audio");
     await ensureDir(audioDir);
     const outputPath = path.join(audioDir, "voice.wav");
-    const script = job.content.fullScript;
-    await this.geminiClient.generateSpeech(script, outputPath, job.audio.voiceName, job.audio.stylePrompt);
-    const durationSeconds = await this.renderService.measureDuration(outputPath);
+    let durationSeconds = 0;
 
-    if (durationSeconds < 32 || durationSeconds > 50) {
-      throw new ShortyError(
-        "voicing",
-        `Ses suresi ${durationSeconds.toFixed(1)} saniye oldu. Hedef 35-45 saniye bandi disina tasiyor.`,
-        true
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const script = job.content.fullScript;
+      if (!script || !job.content.topic || !job.content.hook || !job.content.outro || job.content.beats.length !== 3) {
+        throw new ShortyError("voicing", "Seslendirme oncesi script yapisi eksik.", false);
+      }
+
+      await this.geminiClient.generateSpeech(script, outputPath, job.audio.voiceName, job.audio.stylePrompt);
+      durationSeconds = await this.renderService.measureDuration(outputPath);
+
+      if (durationSeconds >= 32 && durationSeconds <= 50) {
+        break;
+      }
+
+      if (attempt >= 2) {
+        throw new ShortyError(
+          "voicing",
+          `Ses suresi ${durationSeconds.toFixed(1)} saniye oldu. Hedef 35-45 saniye bandi disina tasiyor.`,
+          true
+        );
+      }
+
+      const targetWords = deriveScriptWordWindow(countWords(script), durationSeconds);
+      const revised = await this.geminiClient.retimeStoryScript(
+        {
+          topic: job.content.topic,
+          hook: job.content.hook,
+          beats: job.content.beats,
+          outro: job.content.outro,
+          fullScript: script
+        },
+        targetWords,
+        `Son TTS denemesi ${durationSeconds.toFixed(1)} saniye oldu. Hedef band 35-45 saniye.`
       );
+
+      job = await this.save({
+        ...job,
+        content: {
+          ...job.content,
+          hook: revised.hook,
+          beats: revised.beats,
+          outro: revised.outro,
+          fullScript: revised.fullScript,
+          wordCount: countWords(revised.fullScript)
+        },
+        audio: {
+          ...job.audio,
+          sourcePath: undefined,
+          durationSeconds: undefined
+        },
+        captions: {
+          cues: [],
+          assPath: undefined
+        },
+        render: {},
+        youtube: {},
+        events: [
+          ...job.events,
+          {
+            at: new Date().toISOString(),
+            type: "voicing",
+            message:
+              `Ses ${durationSeconds.toFixed(1)} saniye oldugu icin script ${targetWords.min}-${targetWords.max} kelime bandina yeniden ayarlaniyor.`
+          }
+        ]
+      });
     }
 
     return await this.save({

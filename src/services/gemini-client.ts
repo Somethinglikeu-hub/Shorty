@@ -69,6 +69,36 @@ function encodeWav(pcmData: Uint8Array, sampleRate = 24000, channels = 1, bitsPe
   return Buffer.concat([header, Buffer.from(pcmData)]);
 }
 
+function normalizeRetimedScript(
+  revision: Pick<StoryPlan, "hook" | "beats" | "outro" | "fullScript">,
+  targetWords: { min: number; max: number }
+): Pick<StoryPlan, "hook" | "beats" | "outro" | "fullScript"> {
+  const beats = Array.isArray(revision.beats)
+    ? revision.beats.map((item) => normalizeWhitespace(item)).filter(Boolean).slice(0, 3)
+    : [];
+  const fullScript = normalizeWhitespace(revision.fullScript);
+
+  if (beats.length !== 3) {
+    throw new ShortyError("voicing", "AI sureye gore yeniden yazarken 3 beat koruyamadi.", true);
+  }
+
+  const wordCount = countWords(fullScript);
+  if (wordCount < targetWords.min || wordCount > targetWords.max) {
+    throw new ShortyError(
+      "voicing",
+      `AI sureye gore yeniden yazarken hedef kelime bandina uymadi (${wordCount} kelime).`,
+      true
+    );
+  }
+
+  return {
+    hook: normalizeWhitespace(revision.hook),
+    beats,
+    outro: normalizeWhitespace(revision.outro),
+    fullScript
+  };
+}
+
 export class GeminiClient {
   constructor(private readonly config: AppConfig) {}
 
@@ -220,6 +250,43 @@ Su JSON semasini kullan:
       notes: normalizeWhitespace(review.notes ?? ""),
       revisedPlan: review.revisedPlan
     };
+  }
+
+  async retimeStoryScript(
+    plan: Pick<StoryPlan, "topic" | "hook" | "beats" | "outro" | "fullScript">,
+    targetWords: { min: number; max: number },
+    reason: string
+  ): Promise<Pick<StoryPlan, "hook" | "beats" | "outro" | "fullScript">> {
+    const systemInstruction = `Sen Turkce YouTube Shorts icin mevcut bir scripti sureye uyduran bir editorsun.
+Her zaman su kurallara uy:
+- Yalnizca gecerli JSON dondur.
+- Ana fikri ayni tut.
+- Tam olarak 3 beat koru.
+- Hook ve kapanis daha siki olsun.
+- fullScript ${targetWords.min}-${targetWords.max} kelime araliginda olsun.
+- Yeni alt konu acma, yalnizca metni sikilastir veya gerekirse biraz genislet.`;
+
+    const userPrompt = `Su plani ayni fikirle sureye uydur:
+Konu: ${plan.topic}
+Hook: ${plan.hook}
+Beatler: ${plan.beats.join(" | ")}
+Kapanis: ${plan.outro}
+Mevcut script: ${plan.fullScript}
+Sebep: ${reason}
+
+Su JSON semasini kullan:
+{
+  "hook": "string",
+  "beats": ["string", "string", "string"],
+  "outro": "string",
+  "fullScript": "string"
+}`;
+
+    const revised = await this.callJsonModel<Pick<StoryPlan, "hook" | "beats" | "outro" | "fullScript">>(
+      systemInstruction,
+      userPrompt
+    );
+    return normalizeRetimedScript(revised, targetWords);
   }
 
   async generateSpeech(script: string, outputPath: string, voiceName: string, stylePrompt: string): Promise<void> {
