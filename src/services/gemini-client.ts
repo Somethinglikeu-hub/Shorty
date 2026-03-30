@@ -72,6 +72,27 @@ function encodeWav(pcmData: Uint8Array, sampleRate = 24000, channels = 1, bitsPe
 export class GeminiClient {
   constructor(private readonly config: AppConfig) {}
 
+  private buildStoryPrompt(seedTopic: string | undefined, history: string[], rejectionNotes?: string): string {
+    return `Bugun icin yeni bir Shorts fikri uret.
+Istege bagli seed topic: ${seedTopic || "yok, tamamen yeni konu bul"}.
+Son 50 isten yakin gecmis: ${history.length ? history.join(" | ") : "yok"}.
+Reddedilme notlari: ${rejectionNotes || "yok"}.
+
+Su semayi JSON olarak dondur:
+{
+  "topic": "string",
+  "hook": "string",
+  "beats": ["string", "string", "string"],
+  "outro": "string",
+  "fullScript": "string",
+  "title": "string",
+  "description": "string",
+  "hashtags": ["#tag1", "#tag2", "#tag3"],
+  "visualQueries": ["english query 1", "english query 2", "english query 3", "english query 4"],
+  "shortSummary": "string"
+}`;
+  }
+
   private ensureConfigured(step: "writing" | "voicing"): void {
     if (!this.config.geminiApiKey) {
       throw new ShortyError(step, "GEMINI_API_KEY eksik. .env dosyasini doldurman gerekiyor.", true);
@@ -134,27 +155,32 @@ Her zaman su kurallara uy:
 - visualQueries alanini Ingilizce ve Pexels'ta aranabilir sekilde dondur.
 - Baslik merak uyandirsin ama clickbait olmasin.`;
 
-    const userPrompt = `Bugun icin yeni bir Shorts fikri uret.
-Istege bagli seed topic: ${seedTopic || "yok, tamamen yeni konu bul"}.
-Son 50 isten yakin gecmis: ${history.length ? history.join(" | ") : "yok"}.
-Reddedilme notlari: ${rejectionNotes || "yok"}.
+    let notes = rejectionNotes;
+    let lastError: ShortyError | undefined;
 
-Su semayi JSON olarak dondur:
-{
-  "topic": "string",
-  "hook": "string",
-  "beats": ["string", "string", "string"],
-  "outro": "string",
-  "fullScript": "string",
-  "title": "string",
-  "description": "string",
-  "hashtags": ["#tag1", "#tag2", "#tag3"],
-  "visualQueries": ["english query 1", "english query 2", "english query 3", "english query 4"],
-  "shortSummary": "string"
-}`;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const rawPlan = await this.callJsonModel<StoryPlan>(systemInstruction, this.buildStoryPrompt(seedTopic, history, notes));
+        return normalizePlan(rawPlan);
+      } catch (error) {
+        if (
+          error instanceof ShortyError &&
+          error.recoverable &&
+          (error.step === "writing" || error.step === "sourcing") &&
+          attempt < 2
+        ) {
+          lastError = error;
+          notes = [rejectionNotes, notes, `Son deneme reddedildi: ${error.message}. Bu sefer kurallara birebir uy.`]
+            .filter(Boolean)
+            .join(" | ");
+          continue;
+        }
 
-    const rawPlan = await this.callJsonModel<StoryPlan>(systemInstruction, userPrompt);
-    return normalizePlan(rawPlan);
+        throw error;
+      }
+    }
+
+    throw lastError ?? new ShortyError("writing", "Story plan uretilirken beklenmeyen bir hata olustu.", true);
   }
 
   async reviewStoryPlan(plan: StoryPlan, history: string[]): Promise<StoryReview> {
